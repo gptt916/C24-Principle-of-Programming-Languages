@@ -1,0 +1,75 @@
+(module evaluator scheme
+
+  ; some helper functions that should make your code much easier to read
+  (define unary-op first)
+  (define operand second)
+  (define binary-op second)
+  (define left first)
+  (define right third)
+  (define (atomic? v) (not (list? v)))
+  (define (unary? expr) (= 2 (length expr)))
+  (define (binary? expr) (= 3 (length expr)))
+
+  (define (eval symb context) (if (empty? context)
+                                  symb
+                                  (if (eq? symb (car (first context)))
+                                      (cdr(first context))
+                                      (eval symb (rest context)))))
+  
+  ; It is a good idea to define more such helpers here...
+  
+  ; (evaluate expr context) -> boolean
+  ; expr: a valid representation of an expression
+  ; context: list of pairs: symbol to #t/#f
+  ; Return the value of expr with values of all variables
+  ; that occur in expr specified in context.
+  (define (evaluate expr context)
+      (if (atomic? expr)
+          (eval expr context)
+          (if (unary? expr)
+              (if (eq? (unary-op expr) 'not)
+                  (not (evaluate (operand expr) context))
+                  (display "unary error"))
+              (if (binary? expr)
+                  (if (eq? (binary-op expr) 'and)
+                      (and (evaluate (left expr) context) (evaluate (right expr) context))
+                      (or (evaluate (left expr) context) (evaluate (right expr) context)))
+                  (display "binary error")))))
+  
+  ; (simplify expr context) -> valid expression
+  ; expr: a valid representation of an expression
+  ; context: list of pairs: symbol to #t/#f
+  ; Return an expression that is equivalent to expr,
+  ; but is simplified as much as possible, according to
+  ; the given rules.
+
+  (define (simplify expr context)
+      (if (atomic? expr)
+          (eval expr context)
+          (if (unary? expr)
+              (if (eq? (unary-op expr) 'not)
+                  (if (or (eq? (simplify (operand expr) context) #t)
+                           (eq? (simplify (operand expr) context) #f))
+                      (not (simplify (operand expr) context))
+                      (list 'not (operand expr)))
+                  (display "unary error"))
+              (if (binary? expr)
+                  (if (eq? (binary-op expr) 'and)
+                      (if (eq? (simplify (left expr) context) #t)
+                          (simplify (right expr) context)
+                          (if (eq? (simplify (right expr) context) #t)
+                              (simplify (left expr) context)
+                              (if (or (eq? (simplify (left expr) context) #f) (eq? (simplify (right expr) context) #f))
+                                  #f
+                                  (list (simplify (left expr) context) 'and (simplify (right expr) context)))))
+                      (if (eq? (simplify (left expr) context) #f)
+                          (simplify (right expr) context)
+                          (if (eq? (simplify (right expr) context) #f)
+                              (simplify (left expr) context)
+                                  (if (or (eq? (simplify (left expr) context) #t) (eq? (simplify (right expr) context) #t))
+                                      #t
+                                      (list (simplify (left expr) context) 'or (simplify (right expr) context))))))
+                  (display "binary error")))))
+  
+  (provide evaluate simplify) 
+  )
